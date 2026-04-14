@@ -1,0 +1,103 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Apple Silicon binary; runs on Intel Macs via Rosetta 2.
+  macos:
+    name: macOS (darwin-arm64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build (Fyne + CGO)
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          set -eux
+          go build -trimpath -ldflags="-s -w" -o blooket-csv-exporter-darwin-arm64 .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blooket-csv-exporter-darwin-arm64
+          path: blooket-csv-exporter-darwin-arm64
+
+  windows:
+    name: Windows (amd64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-gcc
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build (Fyne + CGO + windowsgui)
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          set -eux
+          GOROOT_WIN="$(cmd //c "go env GOROOT" | tr -d '\r')"
+          export GOROOT="$(cygpath -u "$GOROOT_WIN")"
+          export PATH="$GOROOT/bin:/mingw64/bin:$PATH"
+          go version
+          go build -trimpath -ldflags="-H windowsgui -s -w" -o blooket-csv-exporter-windows-amd64.exe .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blooket-csv-exporter-windows-amd64
+          path: blooket-csv-exporter-windows-amd64.exe
+
+  release:
+    name: GitHub Release
+    needs: [macos, windows]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: blooket-csv-exporter-*
+
+      - name: Collect binaries
+        run: |
+          mkdir -p upload
+          find dist -type f \( -name 'blooket-csv-exporter-darwin-arm64' -o -name 'blooket-csv-exporter-windows-amd64.exe' \) -exec cp -v {} upload/ \;
+          test "$(find upload -type f | wc -l)" -eq 2
+          ls -la upload/
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            upload/blooket-csv-exporter-darwin-arm64
+            upload/blooket-csv-exporter-windows-amd64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
