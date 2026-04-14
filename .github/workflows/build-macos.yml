@@ -1,0 +1,29 @@
+name: Build macOS
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build (Fyne + CGO)
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          set -eux
+          go build -trimpath -ldflags="-s -w" -o blooket-csv-exporter .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blooket-csv-exporter-macos-${{ runner.arch }}-${{ github.sha }}
+          path: blooket-csv-exporter

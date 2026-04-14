@@ -1,0 +1,39 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+blooket-csv-exporter
+blooket-csv-exporter-*
+blooket-groq-csv
+blooket-groq-csv-*
+
+# App output (created beside the executable at runtime)
+exported/
+
+# Go build cache / test
+/bin/
+/dist/
+*.test
+*.out
+coverage.*
+
+# Dependency directories (if used)
+vendor/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Fyne cross-compilation workspace (optional tool)
+fyne_cross/
+
+# Delve / local debug
+__debug_bin*
